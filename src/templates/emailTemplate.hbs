@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <title>{{subject}}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;700&display=swap');
+        
+        :root {
+            color-scheme: light dark;
+        }
+        
+        body {
+            font-family: 'Red Hat Display', sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+        }
+        
+        .logo {
+            display: block;
+            margin: 0 auto 30px;
+            width: 136px;
+            height: 28px;
+        }
+        
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+        
+        p {
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .otp-container {
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .otp {
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: 4px;
+            text-align: center;
+            margin: 0;
+        }
+        
+        .expiry {
+            font-size: 14px;
+            color: #666666;
+            text-align: center;
+            margin-top: 8px;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #1a1a1a;
+                color: #f4f4f4;
+            }
+            
+            .container {
+                background-color: #2a2a2a;
+                box-shadow: 0 2px 4px rgba(255, 255, 255, 0.1);
+            }
+            
+            .otp-container {
+                background-color: #333333;
+            }
+            
+            .expiry {
+                color: #b0b0b0;
+            }
+        }
+        
+        @media only screen and (max-width: 480px) {
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 20px;
+            }
+            
+            p {
+                font-size: 14px;
+            }
+            
+            .otp {
+                font-size: 28px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="{{logoBase64}}" alt="{{companyName}} Logo" style="max-width: 200px;">
+        <h1>{{subject}}</h1>
+        {{#if otp}}
+        <p>Your OTP is: <strong>{{otp}}</strong></p>
+        {{/if}}
+        <p>Thank you for using our service!</p>
+        <footer>
+            <p>&copy; {{currentYear}} {{companyName}}. All rights reserved.</p>
+        </footer>
+    </div>
+</body>
+</html>
