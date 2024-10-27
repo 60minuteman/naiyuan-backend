@@ -2,7 +2,7 @@ services:
   - type: web
     name: naiyuan-backend
     env: node
-    buildCommand: yarn install && yarn build
+    buildCommand: ./build.sh
     startCommand: yarn start
     envVars:
       - key: NODE_ENV
