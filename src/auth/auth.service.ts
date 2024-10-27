@@ -26,36 +26,80 @@ export class AuthService {
       const existingUser = await this.usersService.findByEmail(signUpDto.email);
 
       if (existingUser) {
-        if (
-          existingUser.verificationStatus === VerificationStatus.PENDING &&
-          !existingUser.bvn &&
-          !existingUser.nin
-        ) {
-          await this.generateAndSendOTP(existingUser.email);
-          return {
-            message: 'OTP sent to continue signup process',
-            email: existingUser.email,
-          };
-        } else {
-          throw new ConflictException('Email already in use');
-        }
+        throw new ConflictException('Email already exists');
       }
 
+      // Hash password
       const hashedPassword = await bcrypt.hash(signUpDto.password, 10);
-      const newUser = await this.usersService.create({
-        ...signUpDto,
-        password: hashedPassword,
-        verificationStatus: VerificationStatus.PENDING,
+
+      // Create user
+      const user = await this.prisma.user.create({
+        data: {
+          email: signUpDto.email,
+          password: hashedPassword,
+          firstName: signUpDto.firstName,
+          lastName: signUpDto.lastName,
+          phoneNumber: signUpDto.phoneNumber,
+          verificationStatus: 'PENDING'
+        },
       });
 
-      await this.generateAndSendOTP(newUser.email);
+      // Generate OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 10); // OTP expires in 10 minutes
+
+      // Store OTP
+      await this.prisma.oTPStore.create({
+        data: {
+          email: user.email,
+          otp: otp,
+          expiresAt: expiresAt,
+          user: {
+            connect: {
+              email: user.email
+            }
+          }
+        }
+      });
+
+      // Send OTP email
+      await this.emailService.sendOTP(user.email, otp);
+
+      // Create initial payment account
+      await this.prisma.paymentAccount.create({
+        data: {
+          userId: user.id,
+          accountType: 'MAIN',
+          currency: 'NGN',
+          balance: 0,
+          status: 'ACTIVE'
+        }
+      });
+
+      // Generate JWT token
+      const token = this.jwtService.sign({
+        sub: user.id,
+        email: user.email
+      });
 
       return {
-        message: 'User created successfully. OTP sent for verification.',
-        email: newUser.email,
+        message: 'Signup successful. Please verify your email.',
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          phoneNumber: user.phoneNumber,
+          verificationStatus: user.verificationStatus
+        }
       };
     } catch (error) {
-      this.logger.error(`Error in signUp: ${error.message}`, error.stack);
+      this.logger.error(`Error in signUp service: ${error.message}`, error.stack);
+      if (error instanceof ConflictException) {
+        throw error;
+      }
       throw new InternalServerErrorException('An error occurred during signup');
     }
   }

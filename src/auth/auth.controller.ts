@@ -13,14 +13,12 @@ export class AuthController {
   @Post('signup')
   async signUp(@Body() signUpDto: SignUpDto) {
     try {
-      return await this.authService.signUp(signUpDto);
+      const result = await this.authService.signUp(signUpDto);
+      return result;
     } catch (error) {
       this.logger.error(`Error in signUp controller: ${error.message}`, error.stack);
       if (error instanceof ConflictException) {
-        throw error; // Propagate ConflictException
-      }
-      if (error instanceof BadRequestException) {
-        throw error;
+        throw new ConflictException(error.message);
       }
       throw new InternalServerErrorException('An error occurred during signup');
     }
