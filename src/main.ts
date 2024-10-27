@@ -3,7 +3,13 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix('api'); // This line sets up the /api prefix
-  await app.listen(3000);
+  
+  app.enableCors({
+    origin: ['your-frontend-url'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    credentials: true,
+  });
+
+  await app.listen(process.env.PORT || 3000);
 }
 bootstrap();
