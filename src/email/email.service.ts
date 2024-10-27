@@ -1,5 +1,4 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { google } from 'googleapis';
 import * as handlebars from 'handlebars';
@@ -8,44 +7,56 @@ import * as path from 'path';
 
 @Injectable()
 export class EmailService {
-  constructor(private configService: ConfigService) {}
+  private readonly logger = new Logger(EmailService.name);
+  private transporter: nodemailer.Transporter;
 
-  private async createTransporter() {
-    const OAuth2 = google.auth.OAuth2;
-    const oauth2Client = new OAuth2(
-      this.configService.get('GMAIL_CLIENT_ID'),
-      this.configService.get('GMAIL_CLIENT_SECRET'),
-      'https://developers.google.com/oauthplayground'
-    );
-
-    oauth2Client.setCredentials({
-      refresh_token: this.configService.get('GMAIL_REFRESH_TOKEN'),
-    });
-
-    const accessToken = await new Promise<string>((resolve, reject) => {
-      oauth2Client.getAccessToken((err, token) => {
-        if (err) {
-          reject('Failed to create access token');
-        }
-        resolve(token);
-      });
-    });
-
-    return nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        type: 'OAuth2',
-        user: this.configService.get('GMAIL_USER'),
-        accessToken,
-        clientId: this.configService.get('GMAIL_CLIENT_ID'),
-        clientSecret: this.configService.get('GMAIL_CLIENT_SECRET'),
-        refreshToken: this.configService.get('GMAIL_REFRESH_TOKEN'),
-      },
+  constructor() {
+    this.initializeTransporter().catch(error => {
+      this.logger.error('Failed to initialize email transporter:', error);
     });
   }
 
+  private async initializeTransporter() {
+    try {
+      const OAuth2 = google.auth.OAuth2;
+      const oauth2Client = new OAuth2(
+        process.env.GMAIL_CLIENT_ID,
+        process.env.GMAIL_CLIENT_SECRET,
+        'https://developers.google.com/oauthplayground'
+      );
+
+      oauth2Client.setCredentials({
+        refresh_token: process.env.GMAIL_REFRESH_TOKEN
+      });
+
+      const accessToken = await new Promise((resolve, reject) => {
+        oauth2Client.getAccessToken((err, token) => {
+          if (err) {
+            reject('Failed to create access token');
+          }
+          resolve(token);
+        });
+      });
+
+      this.transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          type: 'OAuth2',
+          user: process.env.GMAIL_USER,
+          clientId: process.env.GMAIL_CLIENT_ID,
+          clientSecret: process.env.GMAIL_CLIENT_SECRET,
+          refreshToken: process.env.GMAIL_REFRESH_TOKEN,
+          accessToken: accessToken as string,
+        },
+      });
+    } catch (error) {
+      this.logger.error('Error initializing email transporter:', error);
+      throw error;
+    }
+  }
+
   async sendEmail(to: string, subject: string, templateData: any) {
-    const transporter = await this.createTransporter();
+    const transporter = this.transporter;
 
     const templatePath = path.join(process.cwd(), 'src', 'templates', 'emailTemplate.hbs');
     const source = fs.readFileSync(templatePath, 'utf-8');
@@ -56,14 +67,14 @@ export class EmailService {
 
     const html = template({
       subject,
-      companyName: this.configService.get('COMPANY_NAME'),
+      companyName: process.env.COMPANY_NAME,
       currentYear: new Date().getFullYear(),
       logoBase64,
       ...templateData,
     });
 
     const mailOptions = {
-      from: `"${this.configService.get('COMPANY_NAME')}" <${this.configService.get('GMAIL_USER')}>`,
+      from: `"${process.env.COMPANY_NAME}" <${process.env.GMAIL_USER}>`,
       to,
       subject,
       html,
