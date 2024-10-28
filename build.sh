@@ -11,4 +11,5 @@ echo "Running database migrations..."
 yarn prisma migrate deploy
 
 echo "Building application..."
-yarn build
+# Use local nest CLI
+yarn run build
