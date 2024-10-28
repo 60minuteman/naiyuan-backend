@@ -47,7 +47,7 @@ export class AuthService {
       // Generate OTP
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       const expiresAt = new Date();
-      expiresAt.setMinutes(expiresAt.getMinutes() + 10); // OTP expires in 10 minutes
+      expiresAt.setMinutes(expiresAt.getMinutes() + 10);
 
       // Store OTP
       await this.prisma.oTPStore.create({
@@ -55,23 +55,12 @@ export class AuthService {
           email: user.email,
           otp: otp,
           expiresAt: expiresAt,
-          userId: user.id, // Ensure you are using userId if it's a foreign key
+          userId: user.id  // Add this line to connect the OTP to the user
         }
       });
 
       // Send OTP email
       await this.emailService.sendOTP(user.email, otp);
-
-      // Create initial payment account
-      await this.prisma.paymentAccount.create({
-        data: {
-          userId: user.id,
-          accountType: 'MAIN',
-          currency: 'NGN',
-          balance: 0,
-          status: 'ACTIVE'
-        }
-      });
 
       // Generate JWT token
       const token = this.jwtService.sign({
@@ -214,7 +203,33 @@ export class AuthService {
         throw new BadRequestException('User not found');
       }
 
-      return this.generateAndSendOTP(email);
+      // Generate OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 10); // OTP expires in 10 minutes
+
+      // Delete any existing OTP for this user
+      await this.prisma.oTPStore.deleteMany({
+        where: { userId: user.id }
+      });
+
+      // Store new OTP
+      await this.prisma.oTPStore.create({
+        data: {
+          email: email,
+          otp: otp,
+          expiresAt: expiresAt,
+          userId: user.id  // Add this line to connect the OTP to the user
+        }
+      });
+
+      // Send OTP email
+      await this.emailService.sendOTP(email, otp);
+
+      return {
+        message: 'OTP generated successfully',
+        email: email
+      };
     } catch (error) {
       this.logger.error(`Error in generateOTP: ${error.message}`, error.stack);
       if (error instanceof BadRequestException) {
