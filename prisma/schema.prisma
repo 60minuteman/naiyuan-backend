@@ -38,9 +38,8 @@ model OTPStore {
   otp       String
   createdAt DateTime @default(now())
   expiresAt DateTime
-  user      User     @relation(fields: [email], references: [email])
-
-  @@index([email])
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
 }
 
 model VirtualAccount {

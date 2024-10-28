@@ -55,11 +55,7 @@ export class AuthService {
           email: user.email,
           otp: otp,
           expiresAt: expiresAt,
-          user: {
-            connect: {
-              email: user.email
-            }
-          }
+          userId: user.id, // Ensure you are using userId if it's a foreign key
         }
       });
 
