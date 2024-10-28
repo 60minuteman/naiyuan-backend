@@ -1,4 +1,4 @@
-import { Controller, Post, Body, BadRequestException, InternalServerErrorException, Logger, ConflictException, Req, Res } from '@nestjs/common';
+import { Controller, Post, Body, BadRequestException, InternalServerErrorException, Logger, ConflictException, Req, Res, UnauthorizedException, Get, Param } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { SignUpDto } from './dto/signup.dto';
@@ -8,7 +8,7 @@ import { Request, Response } from 'express';
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
-  constructor(private authService: AuthService) {}
+  constructor(private readonly authService: AuthService) {}
 
   @Post('signup')
   async signUp(@Body() signUpDto: SignUpDto) {
@@ -92,13 +92,23 @@ export class AuthController {
   @Post('login')
   async login(@Body() loginDto: LoginDto) {
     try {
-      return await this.authService.login(loginDto);
+      this.logger.log(`Login request received for: ${loginDto.email}`);
+      const result = await this.authService.login(loginDto);
+      return result;
     } catch (error) {
-      this.logger.error(`Error in login controller: ${error.message}`, error.stack);
-      if (error instanceof BadRequestException) {
-        throw error;
+      this.logger.error(`Login controller error:`, error.stack);
+
+      if (error instanceof UnauthorizedException) {
+        throw new UnauthorizedException({
+          message: error.message,
+          statusCode: 401
+        });
       }
-      throw new InternalServerErrorException('An error occurred during login');
+
+      throw new InternalServerErrorException({
+        message: 'Server error occurred during login',
+        statusCode: 500
+      });
     }
   }
 
@@ -115,5 +125,11 @@ export class AuthController {
       this.logger.error(`Error in logout controller: ${error.message}`, error.stack);
       res.status(500).json({ message: 'Error logging out' });
     }
+  }
+
+  @Get('check-user/:email')
+  async checkUser(@Param('email') email: string) {
+    const exists = await this.authService.checkUserExists(email);
+    return { exists };
   }
 }

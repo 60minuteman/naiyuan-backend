@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { User, VerificationStatus } from '@prisma/client';
 import { LoginDto } from './dto/login.dto';
 import { SignUpDto } from './dto/signup.dto';
+import { PrismaClientKnownRequestError } from 'prisma';
 
 @Injectable()
 export class AuthService {
@@ -186,51 +187,74 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
-    const startTime = Date.now();
-    this.logger.log('Starting login process...');
-    
     try {
+      this.logger.log(`Attempting login for email: ${loginDto.email}`);
+
       // Find user
-      this.logger.log('Finding user...');
-      const user = await this.usersService.findByEmail(loginDto.email);
-      
+      const user = await this.prisma.user.findUnique({
+        where: { 
+          email: loginDto.email 
+        },
+        select: {
+          id: true,
+          email: true,
+          password: true,
+          firstName: true,
+          lastName: true,
+          phoneNumber: true,
+          verificationStatus: true
+        }
+      });
+
       if (!user) {
-        throw new UnauthorizedException('Invalid credentials');
+        this.logger.warn(`No user found with email: ${loginDto.email}`);
+        throw new UnauthorizedException('Invalid email or password');
       }
 
-      // Compare password
-      this.logger.log('Comparing password...');
-      const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
-      
+      // Verify password
+      const isPasswordValid = await bcrypt.compare(
+        loginDto.password,
+        user.password
+      );
+
       if (!isPasswordValid) {
-        throw new UnauthorizedException('Invalid credentials');
+        this.logger.warn(`Invalid password for user: ${loginDto.email}`);
+        throw new UnauthorizedException('Invalid email or password');
       }
 
       // Generate token
-      this.logger.log('Generating JWT token...');
-      const token = this.jwtService.sign({
-        sub: user.id,
-        email: user.email
-      });
+      const payload = { 
+        sub: user.id, 
+        email: user.email 
+      };
+      
+      const token = this.jwtService.sign(payload);
 
-      const endTime = Date.now();
-      this.logger.log(`Login completed in ${endTime - startTime}ms`);
+      // Remove password from response
+      const { password: _, ...userWithoutPassword } = user;
+
+      this.logger.log(`Login successful for user: ${loginDto.email}`);
 
       return {
         token,
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          phoneNumber: user.phoneNumber,
-          verificationStatus: user.verificationStatus
-        }
+        user: userWithoutPassword
       };
+
     } catch (error) {
-      const endTime = Date.now();
-      this.logger.error(`Login failed after ${endTime - startTime}ms: ${error.message}`, error.stack);
-      throw error;
+      this.logger.error(
+        `Login error for ${loginDto.email}:`,
+        error.stack
+      );
+
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+
+      if (error instanceof PrismaClientKnownRequestError) {
+        throw new InternalServerErrorException('Database error occurred');
+      }
+
+      throw new InternalServerErrorException('An error occurred during login');
     }
   }
 
@@ -305,5 +329,18 @@ export class AuthService {
     //   this.logger.error(`Error invalidating token: ${error.message}`, error.stack);
     //   throw new InternalServerErrorException('An error occurred while invalidating the token');
     // }
+  }
+
+  // Helper method to check if user exists
+  async checkUserExists(email: string): Promise<boolean> {
+    try {
+      const count = await this.prisma.user.count({
+        where: { email }
+      });
+      return count > 0;
+    } catch (error) {
+      this.logger.error(`Error checking user existence: ${error.message}`);
+      return false;
+    }
   }
 }
