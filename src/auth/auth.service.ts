@@ -44,23 +44,8 @@ export class AuthService {
         },
       });
 
-      // Generate OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiresAt = new Date();
-      expiresAt.setMinutes(expiresAt.getMinutes() + 10);
-
-      // Store OTP
-      await this.prisma.oTPStore.create({
-        data: {
-          email: user.email,
-          otp: otp,
-          expiresAt: expiresAt,
-          userId: user.id  // Add this line to connect the OTP to the user
-        }
-      });
-
-      // Send OTP email
-      await this.emailService.sendOTP(user.email, otp);
+      // Generate and send OTP
+      await this.generateAndSendOTP(user.email, user.id);
 
       // Generate JWT token
       const token = this.jwtService.sign({
@@ -96,7 +81,7 @@ export class AuthService {
         throw new BadRequestException('User not found');
       }
 
-      await this.generateAndSendOTP(email);
+      await this.generateAndSendOTP(email, user.id);
 
       return {
         message: 'OTP resent successfully',
@@ -196,6 +181,36 @@ export class AuthService {
     }
   }
 
+  async generateAndSendOTP(email: string, userId: number) {
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+
+    // Delete any existing OTP
+    await this.prisma.oTPStore.deleteMany({
+      where: { userId }
+    });
+
+    // Create new OTP
+    await this.prisma.oTPStore.create({
+      data: {
+        email,
+        otp,
+        expiresAt,
+        user: {
+          connect: {
+            id: userId
+          }
+        }
+      }
+    });
+
+    // Send OTP email
+    await this.emailService.sendOTP(email, otp);
+    
+    return otp;
+  }
+
   async generateOTP(email: string) {
     try {
       const user = await this.usersService.findByEmail(email);
@@ -203,28 +218,7 @@ export class AuthService {
         throw new BadRequestException('User not found');
       }
 
-      // Generate OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiresAt = new Date();
-      expiresAt.setMinutes(expiresAt.getMinutes() + 10); // OTP expires in 10 minutes
-
-      // Delete any existing OTP for this user
-      await this.prisma.oTPStore.deleteMany({
-        where: { userId: user.id }
-      });
-
-      // Store new OTP
-      await this.prisma.oTPStore.create({
-        data: {
-          email: email,
-          otp: otp,
-          expiresAt: expiresAt,
-          userId: user.id  // Add this line to connect the OTP to the user
-        }
-      });
-
-      // Send OTP email
-      await this.emailService.sendOTP(email, otp);
+      await this.generateAndSendOTP(email, user.id);
 
       return {
         message: 'OTP generated successfully',
@@ -241,31 +235,6 @@ export class AuthService {
 
   private generateOTPString(): string {
     return Math.floor(100000 + Math.random() * 900000).toString();
-  }
-
-  private async generateAndSendOTP(email: string) {
-    try {
-      await this.prisma.oTPStore.deleteMany({ where: { email } });
-
-      const otp = this.generateOTPString();
-      const storedOTP = await this.prisma.oTPStore.create({
-        data: {
-          email,
-          otp,
-          expiresAt: new Date(Date.now() + 10 * 60000) // 10 minutes from now
-        }
-      });
-
-      this.logger.debug(`Generated OTP for ${email}: ${otp}`);
-      this.logger.debug(`Stored OTP: ${JSON.stringify(storedOTP)}`);
-
-      await this.emailService.sendOTP(email, otp);
-      
-      return { message: 'OTP sent successfully' };
-    } catch (error) {
-      this.logger.error(`Error in generateAndSendOTP: ${error.message}`, error.stack);
-      throw new InternalServerErrorException('An error occurred while generating and sending OTP');
-    }
   }
 
   async invalidateToken(token: string): Promise<void> {
