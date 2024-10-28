@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, BadRequestException, InternalServerErrorException, Logger } from '@nestjs/common';
+import { Injectable, ConflictException, BadRequestException, InternalServerErrorException, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { EmailService } from '../email/email.service';
@@ -23,54 +23,89 @@ export class AuthService {
 
   async signUp(signUpDto: SignUpDto) {
     try {
-      const existingUser = await this.usersService.findByEmail(signUpDto.email);
+      this.logger.log('Starting signup process...');
 
+      // Check for existing user
+      const existingUser = await this.usersService.findByEmail(signUpDto.email);
       if (existingUser) {
+        this.logger.warn(`Signup attempt with existing email: ${signUpDto.email}`);
         throw new ConflictException('Email already exists');
       }
 
       // Hash password
       const hashedPassword = await bcrypt.hash(signUpDto.password, 10);
+      this.logger.log('Password hashed successfully');
 
-      // Create user
-      const user = await this.prisma.user.create({
-        data: {
-          email: signUpDto.email,
-          password: hashedPassword,
-          firstName: signUpDto.firstName,
-          lastName: signUpDto.lastName,
-          phoneNumber: signUpDto.phoneNumber,
-          verificationStatus: 'PENDING'
-        },
+      // Create user transaction
+      const result = await this.prisma.$transaction(async (prisma) => {
+        // Create user
+        const user = await prisma.user.create({
+          data: {
+            email: signUpDto.email,
+            password: hashedPassword,
+            firstName: signUpDto.firstName,
+            lastName: signUpDto.lastName,
+            phoneNumber: signUpDto.phoneNumber,
+            verificationStatus: 'PENDING'
+          },
+        });
+        this.logger.log(`User created with ID: ${user.id}`);
+
+        // Generate OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date();
+        expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+
+        // Store OTP
+        await prisma.oTPStore.create({
+          data: {
+            email: user.email,
+            otp: otp,
+            expiresAt: expiresAt,
+            user: {
+              connect: {
+                id: user.id
+              }
+            }
+          }
+        });
+        this.logger.log('OTP stored successfully');
+
+        // Generate JWT token
+        const token = this.jwtService.sign({
+          sub: user.id,
+          email: user.email
+        });
+
+        // Send OTP email asynchronously
+        this.emailService.sendOTP(user.email, otp).catch(error => {
+          this.logger.error(`Failed to send OTP email: ${error.message}`);
+        });
+
+        return {
+          message: 'Signup successful. Please verify your email.',
+          token,
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            phoneNumber: user.phoneNumber,
+            verificationStatus: user.verificationStatus
+          }
+        };
       });
 
-      // Generate and send OTP
-      await this.generateAndSendOTP(user.email, user.id);
+      this.logger.log(`Signup completed successfully for email: ${signUpDto.email}`);
+      return result;
 
-      // Generate JWT token
-      const token = this.jwtService.sign({
-        sub: user.id,
-        email: user.email
-      });
-
-      return {
-        message: 'Signup successful. Please verify your email.',
-        token,
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          phoneNumber: user.phoneNumber,
-          verificationStatus: user.verificationStatus
-        }
-      };
     } catch (error) {
-      this.logger.error(`Error in signUp service: ${error.message}`, error.stack);
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new InternalServerErrorException('An error occurred during signup');
+      this.logger.error('Signup error:', {
+        error: error.message,
+        stack: error.stack,
+        email: signUpDto.email
+      });
+      throw error;
     }
   }
 
@@ -151,33 +186,51 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
+    const startTime = Date.now();
+    this.logger.log('Starting login process...');
+    
     try {
+      // Find user
+      this.logger.log('Finding user...');
       const user = await this.usersService.findByEmail(loginDto.email);
+      
       if (!user) {
-        throw new BadRequestException('Invalid credentials');
+        throw new UnauthorizedException('Invalid credentials');
       }
 
+      // Compare password
+      this.logger.log('Comparing password...');
       const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+      
       if (!isPasswordValid) {
-        throw new BadRequestException('Invalid credentials');
+        throw new UnauthorizedException('Invalid credentials');
       }
 
-      const payload = { email: user.email, sub: user.id };
+      // Generate token
+      this.logger.log('Generating JWT token...');
+      const token = this.jwtService.sign({
+        sub: user.id,
+        email: user.email
+      });
+
+      const endTime = Date.now();
+      this.logger.log(`Login completed in ${endTime - startTime}ms`);
+
       return {
-        token: this.jwtService.sign(payload),
+        token,
         user: {
-          id: user.id ? user.id.toString() : undefined,
-          email: user.email || '',
-          firstName: user.firstName || '',
-          lastName: user.lastName || '',
-        },
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          phoneNumber: user.phoneNumber,
+          verificationStatus: user.verificationStatus
+        }
       };
     } catch (error) {
-      this.logger.error(`Error in login: ${error.message}`, error.stack);
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new InternalServerErrorException('An error occurred during login');
+      const endTime = Date.now();
+      this.logger.error(`Login failed after ${endTime - startTime}ms: ${error.message}`, error.stack);
+      throw error;
     }
   }
 

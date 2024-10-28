@@ -1,15 +1,17 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# exit on error
+set -e
 
-echo "Installing dependencies..."
+# Install dependencies
 yarn install
 
-echo "Installing additional dependencies..."
-yarn add nodemailer googleapis handlebars @types/nodemailer
-
-echo "Generating Prisma client..."
+# Run prisma generate
 yarn prisma generate
 
-echo "Building application..."
+# Run prisma migrations
+yarn prisma migrate deploy
+
+# Build the application
 yarn build
 
 

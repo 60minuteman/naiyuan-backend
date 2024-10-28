@@ -13,14 +13,28 @@ export class AuthController {
   @Post('signup')
   async signUp(@Body() signUpDto: SignUpDto) {
     try {
+      this.logger.log(`Signup attempt for email: ${signUpDto.email}`);
       const result = await this.authService.signUp(signUpDto);
+      this.logger.log(`Signup successful for email: ${signUpDto.email}`);
       return result;
     } catch (error) {
-      this.logger.error(`Error in signUp controller: ${error.message}`, error.stack);
+      this.logger.error(`Signup failed for email: ${signUpDto.email}`, {
+        error: error.message,
+        stack: error.stack,
+      });
+
       if (error instanceof ConflictException) {
-        throw new ConflictException(error.message);
+        throw new ConflictException({
+          message: 'Email already exists',
+          statusCode: 409
+        });
       }
-      throw new InternalServerErrorException('An error occurred during signup');
+
+      throw new InternalServerErrorException({
+        message: 'An error occurred during signup',
+        error: error.message,
+        statusCode: 500
+      });
     }
   }
 

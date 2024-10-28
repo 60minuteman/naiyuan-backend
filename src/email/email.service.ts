@@ -93,6 +93,20 @@ export class EmailService {
   }
 
   async sendOTP(email: string, otp: string) {
-    await this.sendEmail(email, 'Your OTP for signup', { otp });
+    // Send email asynchronously without waiting
+    this.sendEmailAsync(email, otp).catch(error => {
+      this.logger.error(`Failed to send OTP email: ${error.message}`);
+    });
+    
+    return true;
+  }
+
+  private async sendEmailAsync(email: string, otp: string) {
+    try {
+      await this.sendEmail(email, 'Your OTP for signup', { otp });
+    } catch (error) {
+      this.logger.error(`Error sending email: ${error.message}`);
+      throw error;
+    }
   }
 }
