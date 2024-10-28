@@ -2,15 +2,10 @@ services:
   - type: web
     name: naiyuan-backend
     env: node
-    plan: free
     buildCommand: ./build.sh
     startCommand: yarn start
     envVars:
+      - key: DATABASE_URL
+        value: postgresql://naiyuan_user:Bw9dgNFjxVAtqeqlCTEO60EEdJqqIMnZ@dpg-csfb8o08fa8c739ti4p0-a.oregon-postgres.render.com/naiyuan
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 3000
-      - key: DATABASE_URL
-        fromDatabase:
-          name: naiyuan-db
-          property: connectionString

@@ -12,6 +12,3 @@ yarn prisma migrate deploy
 
 echo "Building application..."
 yarn build
-
-
-
