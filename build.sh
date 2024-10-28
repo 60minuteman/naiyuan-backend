@@ -1,17 +1,16 @@
-#!/usr/bin/env bash
-# exit on error
+#!/bin/bash
 set -e
 
-# Install dependencies
+echo "Installing dependencies..."
 yarn install
 
-# Run prisma generate
+echo "Generating Prisma Client..."
 yarn prisma generate
 
-# Run prisma migrations
+echo "Running database migrations..."
 yarn prisma migrate deploy
 
-# Build the application
+echo "Building application..."
 yarn build
 
 
