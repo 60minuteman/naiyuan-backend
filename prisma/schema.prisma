@@ -34,15 +34,12 @@ model User {
 
 model OTPStore {
   id        Int      @id @default(autoincrement())
-  email     String
   otp       String
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
   expiresAt DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id])
-
-  @@index([userId])
 }
 
 model VirtualAccount {

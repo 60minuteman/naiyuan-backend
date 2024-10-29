@@ -10,6 +10,7 @@ import { LoginDto } from './dto/login.dto';
 import { SignUpDto } from './dto/signup.dto';
 import { PrismaClientKnownRequestError } from 'prisma';
 import { VerifyOTPDto } from './dto/verify-otp.dto';
+import { GenerateOTPDto } from './dto/generate-otp.dto';
 
 @Injectable()
 export class AuthService {
@@ -255,52 +256,40 @@ export class AuthService {
     }
   }
 
-  async generateOTP(email: string) {
+  async generateOTP(generateOTPDto: GenerateOTPDto) {
     try {
-      this.logger.log(`Generating OTP for email: ${email}`);
+      // Check if user exists
+      const user = await this.prisma.user.findUnique({
+        where: { email: generateOTPDto.email }
+      });
 
-      // Generate 6-digit OTP
+      if (!user) {
+        throw new BadRequestException('User not found');
+      }
+
+      // Generate 6 digit OTP
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiresAt = new Date();
-      expiresAt.setMinutes(expiresAt.getMinutes() + 10); // 10 minutes expiry
-
-      // Delete any existing OTP
-      await this.prisma.oTPStore.deleteMany({
-        where: { email }
-      });
-
-      // Store new OTP
-      const storedOTP = await this.prisma.oTPStore.create({
+      
+      // Save OTP to database
+      await this.prisma.oTPStore.create({
         data: {
-          email,
           otp,
-          expiresAt,
-          user: {
-            connect: {
-              email
-            }
-          }
-        }
+          userId: user.id,
+          expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes expiry
+        },
       });
 
-      this.logger.debug(`Stored OTP for ${email}: ${storedOTP.otp}`);
+      // Send OTP via email
+      await this.emailService.sendOTPEmail(user.email, otp);
 
-      // Send OTP email
-      await this.emailService.sendOTP(email, otp);
-
-      return {
-        message: 'OTP sent successfully',
-        email
-      };
+      return { message: 'OTP sent successfully' };
 
     } catch (error) {
-      this.logger.error(`Error generating OTP: ${error.message}`, error.stack);
-      
-      if (error.code === 'P2025') {
-        throw new NotFoundException('User not found');
+      this.logger.error('Failed to generate OTP:', error);
+      if (error instanceof BadRequestException) {
+        throw error;
       }
-      
-      throw new InternalServerErrorException('Failed to generate OTP');
+      throw new BadRequestException('Failed to generate OTP');
     }
   }
 
