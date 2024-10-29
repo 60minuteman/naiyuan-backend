@@ -60,13 +60,13 @@ export class AuthService {
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       this.logger.debug('Generated OTP');
       
-      // Save OTP to database with email
+      // Save OTP to database with email field
       const otpRecord = await this.prisma.oTPStore.create({
         data: {
           otp,
-          email: user.email,
+          email: generateOTPDto.email,
           userId: user.id,
-          expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes expiry
+          expiresAt: new Date(Date.now() + 15 * 60 * 1000),
         },
       });
       this.logger.debug(`Created OTP record with ID: ${otpRecord.id}`);
