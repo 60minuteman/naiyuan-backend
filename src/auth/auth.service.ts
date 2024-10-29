@@ -5,6 +5,8 @@ import { GenerateOTPDto } from './dto/generate-otp.dto';
 import { VerifyOTPDto } from './dto/verify-otp.dto';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
+import { SignUpDto } from './dto/signup.dto';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
@@ -146,5 +148,51 @@ export class AuthService {
 
   async resendOTP(generateOTPDto: GenerateOTPDto) {
     return this.generateOTP(generateOTPDto);
+  }
+
+  async signup(signUpDto: SignUpDto) {
+    try {
+      // Check if user already exists
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: signUpDto.email }
+      });
+
+      if (existingUser) {
+        throw new BadRequestException('User with this email already exists');
+      }
+
+      // Hash the password
+      const hashedPassword = await bcrypt.hash(signUpDto.password, 10);
+
+      // Create new user
+      const user = await this.prisma.user.create({
+        data: {
+          email: signUpDto.email,
+          password: hashedPassword,
+          firstName: signUpDto.firstName,
+          lastName: signUpDto.lastName,
+          phoneNumber: signUpDto.phoneNumber,
+          verificationStatus: 'PENDING'
+        }
+      });
+
+      // Generate OTP for email verification
+      await this.generateOTP({ email: user.email });
+
+      // Remove password from response
+      const { password: _, ...userWithoutPassword } = user;
+
+      return {
+        message: 'User registered successfully. Please verify your email with the OTP sent.',
+        user: userWithoutPassword
+      };
+
+    } catch (error) {
+      this.logger.error('Failed to signup:', error);
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException(error.message || 'Failed to signup');
+    }
   }
 }
