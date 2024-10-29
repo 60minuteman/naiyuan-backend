@@ -1185,7 +1185,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@prisma/client@npm:^5.0.0":
+"@prisma/client@npm:latest":
   version: 5.21.1
   resolution: "@prisma/client@npm:5.21.1"
   peerDependencies:
@@ -1535,7 +1535,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/nodemailer@npm:^6.4.16":
+"@types/nodemailer@npm:^6.4.0":
   version: 6.4.16
   resolution: "@types/nodemailer@npm:6.4.16"
   dependencies:
@@ -4151,13 +4151,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"googleapis@npm:^144.0.0":
-  version: 144.0.0
-  resolution: "googleapis@npm:144.0.0"
+"googleapis@npm:^129.0.0":
+  version: 129.0.0
+  resolution: "googleapis@npm:129.0.0"
   dependencies:
     google-auth-library: ^9.0.0
     googleapis-common: ^7.0.0
-  checksum: c9e8197114ed4d72dc535e5db578dc7748c066df75459c2a5634f639e89dfe98b5a63e9ac67feb7b362f6ee16d43837c68dcfb11e31fc2eeb946f3117c2ab75d
+  checksum: ce694221b9e53195761a8e08452dd60919afe6a0f397720384a638dba4ae1d6d0a2c2bf4a8c78630e631b4f69137036bb3a5d87629ec82e33ef2eead732986c5
   languageName: node
   linkType: hard
 
@@ -4194,7 +4194,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"handlebars@npm:^4.7.8":
+"handlebars@npm:^4.7.0":
   version: 4.7.8
   resolution: "handlebars@npm:4.7.8"
   dependencies:
@@ -5873,12 +5873,12 @@ __metadata:
     "@nestjs/platform-express": ^10.0.0
     "@nestjs/schematics": ^10.0.0
     "@nestjs/testing": ^10.0.0
-    "@prisma/client": ^5.0.0
+    "@prisma/client": latest
     "@types/bcrypt": ^5.0.2
     "@types/express": ^4.17.17
     "@types/jest": ^29.5.2
     "@types/node": ^20.3.1
-    "@types/nodemailer": ^6.4.16
+    "@types/nodemailer": ^6.4.0
     "@types/passport-jwt": ^4.0.1
     "@types/supertest": ^2.0.12
     "@typescript-eslint/eslint-plugin": ^6.0.0
@@ -5890,14 +5890,14 @@ __metadata:
     eslint: ^8.42.0
     eslint-config-prettier: ^9.0.0
     eslint-plugin-prettier: ^5.0.0
-    googleapis: ^144.0.0
-    handlebars: ^4.7.8
+    googleapis: ^129.0.0
+    handlebars: ^4.7.0
     jest: ^29.5.0
-    nodemailer: ^6.9.15
+    nodemailer: ^6.9.0
     passport: ^0.7.0
     passport-jwt: ^4.0.1
     prettier: ^3.0.0
-    prisma: ^5.0.0
+    prisma: latest
     reflect-metadata: ^0.1.13
     rxjs: ^7.8.1
     source-map-support: ^0.5.21
@@ -6004,10 +6004,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nodemailer@npm:^6.9.15":
-  version: 6.9.15
-  resolution: "nodemailer@npm:6.9.15"
-  checksum: 2d975f5c60f84acde52d79d43287c70197fe94bde4a731682f306e9636a148c49de29a5dd92ce7dc5aac068a148cd91da3401ede80f8f52b9f2bc00439f36ced
+"nodemailer@npm:^6.9.0":
+  version: 6.9.16
+  resolution: "nodemailer@npm:6.9.16"
+  checksum: a031d243914ab5a3bb48c75e1fab02d25fb45c2b5b9bc15569cce45ec851235bc970087de99477ca6e7ee88fab2cb6a590a714af310f58532dbcc31396f68b1c
   languageName: node
   linkType: hard
 
@@ -6401,7 +6401,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prisma@npm:^5.0.0":
+"prisma@npm:latest":
   version: 5.21.1
   resolution: "prisma@npm:5.21.1"
   dependencies:

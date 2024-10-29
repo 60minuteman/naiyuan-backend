@@ -1,7 +1,9 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { GenerateOTPDto } from './dto/generate-otp.dto';
+import { VerifyOTPDto } from './dto/verify-otp.dto';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class AuthService {
@@ -10,6 +12,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
+    private jwtService: JwtService,
   ) {}
 
   async generateOTP(generateOTPDto: GenerateOTPDto) {
@@ -45,6 +48,59 @@ export class AuthService {
         throw error;
       }
       throw new BadRequestException('Failed to generate OTP');
+    }
+  }
+
+  async verifyOTP(verifyOTPDto: VerifyOTPDto) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { email: verifyOTPDto.email }
+      });
+
+      if (!user) {
+        throw new BadRequestException('User not found');
+      }
+
+      const otpRecord = await this.prisma.oTPStore.findFirst({
+        where: {
+          userId: user.id,
+          otp: verifyOTPDto.otp,
+          expiresAt: {
+            gt: new Date()
+          }
+        }
+      });
+
+      if (!otpRecord) {
+        throw new BadRequestException('Invalid or expired OTP');
+      }
+
+      // Update user verification status
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { verificationStatus: 'VERIFIED' }
+      });
+
+      // Generate JWT token
+      const payload = {
+        sub: user.id,
+        email: user.email
+      };
+
+      const token = await this.jwtService.signAsync(payload);
+      const { password: _, ...userWithoutPassword } = user;
+
+      return {
+        access_token: token,
+        user: userWithoutPassword
+      };
+
+    } catch (error) {
+      this.logger.error('Failed to verify OTP:', error);
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to verify OTP');
     }
   }
 
