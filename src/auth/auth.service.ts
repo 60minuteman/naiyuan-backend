@@ -4,6 +4,7 @@ import { EmailService } from '../email/email.service';
 import { GenerateOTPDto } from './dto/generate-otp.dto';
 import { VerifyOTPDto } from './dto/verify-otp.dto';
 import { JwtService } from '@nestjs/jwt';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -17,40 +18,67 @@ export class AuthService {
 
   async generateOTP(generateOTPDto: GenerateOTPDto) {
     try {
-      // Try to find user or create if doesn't exist
+      this.logger.debug(`Attempting to find or create user for email: ${generateOTPDto.email}`);
+      
       let user = await this.prisma.user.findUnique({
         where: { email: generateOTPDto.email }
       });
 
       if (!user) {
-        // Create new user if doesn't exist
-        user = await this.prisma.user.create({
-          data: {
-            email: generateOTPDto.email,
-            verificationStatus: 'PENDING'
+        this.logger.debug('User not found, creating new user');
+        try {
+          user = await this.prisma.user.create({
+            data: {
+              email: generateOTPDto.email,
+              verificationStatus: 'PENDING',
+              // Add any other required fields with default values
+              phoneNumber: null,
+              password: null,
+              firstName: null,
+              lastName: null,
+              middleName: null,
+              bvn: null,
+              nin: null,
+              dateOfBirth: null,
+              lgaOfOrigin: null,
+              stateOfOrigin: null,
+              residentialAddress: null,
+              bvnResponse: null,
+              ninResponse: null
+            }
+          });
+          this.logger.debug(`Created new user with ID: ${user.id}`);
+        } catch (error) {
+          if (error instanceof Prisma.PrismaClientKnownRequestError) {
+            this.logger.error(`Prisma error creating user: ${error.code} - ${error.message}`);
+            throw new BadRequestException(`Failed to create user: ${error.message}`);
           }
-        });
-        this.logger.log(`Created new user with email: ${generateOTPDto.email}`);
+          throw error;
+        }
       }
 
       // Generate 6 digit OTP
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      this.logger.debug('Generated OTP');
       
       // Save OTP to database
-      await this.prisma.oTPStore.create({
+      const otpRecord = await this.prisma.oTPStore.create({
         data: {
           otp,
           userId: user.id,
           expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes expiry
         },
       });
+      this.logger.debug(`Created OTP record with ID: ${otpRecord.id}`);
 
       // Send OTP via email
       await this.emailService.sendOTP(user.email, otp);
+      this.logger.debug('Sent OTP email');
 
       return { 
         message: 'OTP sent successfully',
-        isNewUser: !user
+        isNewUser: !user,
+        userId: user.id // Adding userId to response for debugging
       };
 
     } catch (error) {
@@ -58,7 +86,9 @@ export class AuthService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException('Failed to generate OTP');
+      // Log the full error for debugging
+      this.logger.error('Full error:', JSON.stringify(error, null, 2));
+      throw new BadRequestException(error.message || 'Failed to generate OTP');
     }
   }
 

@@ -93,7 +93,6 @@ enum VerificationStatus {
   PENDING
   VERIFIED
 }
-
 enum TransactionStatus {
   PENDING
   COMPLETED
@@ -108,3 +107,4 @@ enum PaymentMethod {
   E_YUAN
   QQ_PAY
 }
+
