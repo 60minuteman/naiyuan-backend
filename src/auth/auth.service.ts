@@ -173,7 +173,10 @@ export class AuthService {
       });
 
       if (existingUser) {
-        throw new BadRequestException('User with this email already exists');
+        throw new BadRequestException({
+          success: false,
+          message: 'User with this email already exists'
+        });
       }
 
       // Hash the password
@@ -192,14 +195,20 @@ export class AuthService {
       });
 
       // Generate OTP for email verification
-      await this.generateOTP({ email: user.email });
+      const otpResponse = await this.generateOTP({ email: user.email });
 
       // Remove password from response
       const { password: _, ...userWithoutPassword } = user;
 
       return {
+        success: true,
         message: 'User registered successfully. Please verify your email with the OTP sent.',
-        user: userWithoutPassword
+        user: userWithoutPassword,
+        isNewUser: true,
+        userId: user.id,
+        email: user.email,
+        verificationStatus: user.verificationStatus,
+        otpSent: otpResponse.success
       };
 
     } catch (error) {
@@ -207,7 +216,10 @@ export class AuthService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException(error.message || 'Failed to signup');
+      throw new BadRequestException({
+        success: false,
+        message: error.message || 'Failed to signup'
+      });
     }
   }
 }
