@@ -257,13 +257,17 @@ export class AuthService {
       // Generate 6 digit OTP
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       
-      // Save OTP to database
+      // Save OTP to database using the correct Prisma input type
       await this.prisma.oTPStore.create({
         data: {
           otp,
-          userId: user.id,
           expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes expiry
-        },
+          user: {
+            connect: {
+              id: user.id
+            }
+          }
+        }
       });
 
       // Send OTP via email
