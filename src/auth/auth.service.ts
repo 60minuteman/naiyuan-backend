@@ -78,9 +78,12 @@ export class AuthService {
       this.logger.debug('Sent OTP email');
 
       return { 
+        success: true,
         message: 'OTP sent successfully',
         isNewUser: !user,
-        userId: user.id
+        userId: user.id,
+        email: user.email,
+        verificationStatus: user.verificationStatus
       };
 
     } catch (error) {
@@ -88,8 +91,10 @@ export class AuthService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      this.logger.error('Full error:', JSON.stringify(error, null, 2));
-      throw new BadRequestException(error.message || 'Failed to generate OTP');
+      throw new BadRequestException({
+        success: false,
+        message: error.message || 'Failed to generate OTP'
+      });
     }
   }
 
@@ -118,7 +123,7 @@ export class AuthService {
       }
 
       // Update user verification status
-      await this.prisma.user.update({
+      const updatedUser = await this.prisma.user.update({
         where: { id: user.id },
         data: { verificationStatus: 'VERIFIED' }
       });
@@ -130,11 +135,17 @@ export class AuthService {
       };
 
       const token = await this.jwtService.signAsync(payload);
-      const { password: _, ...userWithoutPassword } = user;
+      
+      // Remove sensitive data from user object
+      const { password: _, ...userWithoutPassword } = updatedUser;
 
       return {
-        access_token: token,
-        user: userWithoutPassword
+        success: true,
+        message: 'OTP verified successfully',
+        token,
+        user: userWithoutPassword,
+        isVerified: true,
+        verificationStatus: 'VERIFIED'
       };
 
     } catch (error) {
@@ -142,7 +153,11 @@ export class AuthService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to verify OTP');
+      throw new BadRequestException({
+        success: false,
+        message: error.message || 'Failed to verify OTP',
+        isVerified: false
+      });
     }
   }
 
