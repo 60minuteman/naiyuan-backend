@@ -7,6 +7,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
 import { SignUpDto } from './dto/signup.dto';
 import * as bcrypt from 'bcrypt';
+import { CompleteProfileDto } from './dto/complete-profile.dto';
 
 @Injectable()
 export class AuthService {
@@ -242,6 +243,49 @@ export class AuthService {
       throw new BadRequestException({
         success: false,
         message: error.message || 'Failed to signup'
+      });
+    }
+  }
+
+  async completeProfile(userId: number, completeProfileDto: CompleteProfileDto) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId }
+      });
+
+      if (!user) {
+        throw new BadRequestException({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      const updatedUser = await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          bvn: completeProfileDto.bvn,
+          nin: completeProfileDto.nin,
+          dateOfBirth: completeProfileDto.dateOfBirth ? new Date(completeProfileDto.dateOfBirth) : null,
+        }
+      });
+
+      // Remove sensitive information
+      const { password: _, ...userWithoutPassword } = updatedUser;
+
+      return {
+        success: true,
+        message: 'Profile updated successfully',
+        user: userWithoutPassword
+      };
+
+    } catch (error) {
+      this.logger.error('Failed to complete profile:', error);
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException({
+        success: false,
+        message: error.message || 'Failed to update profile'
       });
     }
   }

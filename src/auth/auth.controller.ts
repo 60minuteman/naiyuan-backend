@@ -1,8 +1,9 @@
-import { Controller, Post, Body, Logger } from '@nestjs/common';
+import { Controller, Post, Body, Logger, Param, Put } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { GenerateOTPDto } from './dto/generate-otp.dto';
 import { VerifyOTPDto } from './dto/verify-otp.dto';
 import { SignUpDto } from './dto/signup.dto';
+import { CompleteProfileDto } from './dto/complete-profile.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -28,5 +29,13 @@ export class AuthController {
   @Post('resend-otp')
   async resendOTP(@Body() generateOTPDto: GenerateOTPDto) {
     return this.authService.resendOTP(generateOTPDto);
+  }
+
+  @Put('complete-profile/:userId')
+  async completeProfile(
+    @Param('userId') userId: string,
+    @Body() completeProfileDto: CompleteProfileDto
+  ) {
+    return this.authService.completeProfile(parseInt(userId), completeProfileDto);
   }
 }
