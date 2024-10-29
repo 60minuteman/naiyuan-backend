@@ -17,12 +17,20 @@ export class AuthService {
 
   async generateOTP(generateOTPDto: GenerateOTPDto) {
     try {
-      const user = await this.prisma.user.findUnique({
+      // Try to find user or create if doesn't exist
+      let user = await this.prisma.user.findUnique({
         where: { email: generateOTPDto.email }
       });
 
       if (!user) {
-        throw new BadRequestException('User not found');
+        // Create new user if doesn't exist
+        user = await this.prisma.user.create({
+          data: {
+            email: generateOTPDto.email,
+            verificationStatus: 'PENDING'
+          }
+        });
+        this.logger.log(`Created new user with email: ${generateOTPDto.email}`);
       }
 
       // Generate 6 digit OTP
@@ -40,7 +48,10 @@ export class AuthService {
       // Send OTP via email
       await this.emailService.sendOTP(user.email, otp);
 
-      return { message: 'OTP sent successfully' };
+      return { 
+        message: 'OTP sent successfully',
+        isNewUser: !user
+      };
 
     } catch (error) {
       this.logger.error('Failed to generate OTP:', error);
