@@ -1,9 +1,10 @@
-import { Controller, Post, Body, Logger, Param, Put } from '@nestjs/common';
+import { Controller, Post, Body, Logger, Param, Put, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { GenerateOTPDto } from './dto/generate-otp.dto';
 import { VerifyOTPDto } from './dto/verify-otp.dto';
 import { SignUpDto } from './dto/signup.dto';
 import { CompleteProfileDto } from './dto/complete-profile.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -31,6 +32,7 @@ export class AuthController {
     return this.authService.resendOTP(generateOTPDto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Put('complete-profile/:userId')
   async completeProfile(
     @Param('userId') userId: string,
