@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, BadRequestException, InternalServerErrorException, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, ConflictException, BadRequestException, InternalServerErrorException, Logger, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { EmailService } from '../email/email.service';
@@ -112,77 +112,84 @@ export class AuthService {
 
   async resendOTP(email: string) {
     try {
-      const user = await this.usersService.findByEmail(email);
-      if (!user) {
-        throw new BadRequestException('User not found');
-      }
-
-      await this.generateAndSendOTP(email, user.id);
-
-      return {
-        message: 'OTP resent successfully',
-        email: email,
-      };
+      this.logger.log(`Resending OTP for email: ${email}`);
+      return await this.generateOTP(email);
     } catch (error) {
-      this.logger.error(`Error in resendOTP: ${error.message}`, error.stack);
-      throw new InternalServerErrorException('An error occurred while resending OTP');
+      this.logger.error(`Error resending OTP: ${error.message}`, error.stack);
+      throw error;
     }
   }
 
-  async verifyOTP(email: string, otp: string) {
+  async verifyOTP(verifyOTPDto: VerifyOTPDto) {
     try {
-      const storedOTP = await this.prisma.oTPStore.findFirst({
-        where: { 
-          email,
-          expiresAt: { gt: new Date() }
+      this.logger.log(`Verifying OTP for email: ${verifyOTPDto.email}`);
+
+      // Find the latest OTP
+      const otpRecord = await this.prisma.oTPStore.findFirst({
+        where: {
+          email: verifyOTPDto.email,
+          expiresAt: {
+            gt: new Date() // not expired
+          }
         },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        include: {
+          user: true
+        }
       });
 
-      this.logger.debug(`Stored OTP for ${email}: ${JSON.stringify(storedOTP)}`);
-
-      if (!storedOTP) {
+      if (!otpRecord) {
+        this.logger.warn(`No valid OTP found for email: ${verifyOTPDto.email}`);
         throw new BadRequestException('No valid OTP found. Please request a new OTP.');
       }
 
-      if (storedOTP.otp !== otp) {
-        throw new BadRequestException('Invalid OTP. Please try again.');
+      this.logger.debug(`Found OTP record: ${JSON.stringify({
+        id: otpRecord.id,
+        email: otpRecord.email,
+        expiresAt: otpRecord.expiresAt
+      })}`);
+
+      // Verify OTP
+      if (otpRecord.otp !== verifyOTPDto.otp) {
+        this.logger.warn(`Invalid OTP provided for email: ${verifyOTPDto.email}`);
+        throw new BadRequestException('Invalid OTP');
       }
 
-      await this.prisma.oTPStore.delete({ where: { id: storedOTP.id } });
+      // Update user verification status
+      await this.prisma.user.update({
+        where: { id: otpRecord.user.id },
+        data: { verificationStatus: 'VERIFIED' }
+      });
 
-      const user = await this.usersService.findByEmail(email);
-      this.logger.debug(`User found: ${JSON.stringify(user)}`);
+      // Delete used OTP
+      await this.prisma.oTPStore.delete({
+        where: { id: otpRecord.id }
+      });
 
-      if (!user) {
-        throw new BadRequestException('User not found');
-      }
+      // Generate token
+      const token = this.jwtService.sign({
+        sub: otpRecord.user.id,
+        email: otpRecord.user.email
+      });
 
-      if (user.verificationStatus === VerificationStatus.PENDING) {
-        await this.usersService.update(user.id, { verificationStatus: VerificationStatus.SUCCESS });
-      }
+      const { password: _, ...userWithoutPassword } = otpRecord.user;
 
-      const payload = { email: user.email, sub: user.id };
-      const token = this.jwtService.sign(payload);
-
-      const response = {
+      return {
+        message: 'OTP verified successfully',
         token,
-        user: {
-          id: user.id ? user.id.toString() : 'undefined',
-          email: user.email || 'undefined',
-          firstName: user.firstName || 'undefined',
-          lastName: user.lastName || 'undefined',
-        },
+        user: userWithoutPassword
       };
 
-      this.logger.debug(`Response object: ${JSON.stringify(response)}`);
-
-      return response;
     } catch (error) {
       this.logger.error(`Error in verifyOTP: ${error.message}`, error.stack);
+      
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new InternalServerErrorException('An error occurred during OTP verification');
+      
+      throw new InternalServerErrorException('Failed to verify OTP');
     }
   }
 
@@ -258,60 +265,53 @@ export class AuthService {
     }
   }
 
-  async generateAndSendOTP(email: string, userId: number) {
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
-
-    // Delete any existing OTP
-    await this.prisma.oTPStore.deleteMany({
-      where: { userId }
-    });
-
-    // Create new OTP
-    await this.prisma.oTPStore.create({
-      data: {
-        email,
-        otp,
-        expiresAt,
-        user: {
-          connect: {
-            id: userId
-          }
-        }
-      }
-    });
-
-    // Send OTP email
-    await this.emailService.sendOTP(email, otp);
-    
-    return otp;
-  }
-
   async generateOTP(email: string) {
     try {
-      const user = await this.usersService.findByEmail(email);
-      if (!user) {
-        throw new BadRequestException('User not found');
-      }
+      this.logger.log(`Generating OTP for email: ${email}`);
 
-      await this.generateAndSendOTP(email, user.id);
+      // Generate 6-digit OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 10); // 10 minutes expiry
+
+      // Delete any existing OTP
+      await this.prisma.oTPStore.deleteMany({
+        where: { email }
+      });
+
+      // Store new OTP
+      const storedOTP = await this.prisma.oTPStore.create({
+        data: {
+          email,
+          otp,
+          expiresAt,
+          user: {
+            connect: {
+              email
+            }
+          }
+        }
+      });
+
+      this.logger.debug(`Stored OTP for ${email}: ${storedOTP.otp}`);
+
+      // Send OTP email
+      await this.emailService.sendOTP(email, otp);
 
       return {
-        message: 'OTP generated successfully',
-        email: email
+        message: 'OTP sent successfully',
+        email
       };
-    } catch (error) {
-      this.logger.error(`Error in generateOTP: ${error.message}`, error.stack);
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new InternalServerErrorException('An error occurred while generating OTP');
-    }
-  }
 
-  private generateOTPString(): string {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+    } catch (error) {
+      this.logger.error(`Error generating OTP: ${error.message}`, error.stack);
+      
+      if (error.code === 'P2025') {
+        throw new NotFoundException('User not found');
+      }
+      
+      throw new InternalServerErrorException('Failed to generate OTP');
+    }
   }
 
   async invalidateToken(token: string): Promise<void> {

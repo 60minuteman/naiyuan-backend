@@ -3,6 +3,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { SignUpDto } from './dto/signup.dto';
 import { Request, Response } from 'express';
+import { VerifyOTPDto } from './dto/verify-otp.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -55,37 +56,24 @@ export class AuthController {
   }
 
   @Post('resend-otp')
-  async resendOTP(@Body('email') email: string) {
+  async resendOTP(@Body() { email }: { email: string }) {
     try {
-      if (!email) {
-        throw new BadRequestException('Email is required');
-      }
-      return await this.authService.generateOTP(email);
+      this.logger.log(`OTP resend request received for: ${email}`);
+      return await this.authService.resendOTP(email);
     } catch (error) {
-      this.logger.error(`Error in resendOTP controller: ${error.message}`, error.stack);
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new InternalServerErrorException('An error occurred while resending OTP');
+      this.logger.error(`Error in resendOTP controller: ${error.message}`);
+      throw error;
     }
   }
 
   @Post('verify-otp')
-  async verifyOTP(@Body() body: { email: string; otp: string }) {
+  async verifyOTP(@Body() verifyOTPDto: VerifyOTPDto) {
     try {
-      const { email, otp } = body;
-      if (!email || !otp) {
-        throw new BadRequestException('Email and OTP are required');
-      }
-      const result = await this.authService.verifyOTP(email, otp);
-      this.logger.debug(`Controller response: ${JSON.stringify(result)}`);
-      return result;
+      this.logger.log(`OTP verification request received for: ${verifyOTPDto.email}`);
+      return await this.authService.verifyOTP(verifyOTPDto);
     } catch (error) {
-      this.logger.error(`Error in verifyOTP controller: ${error.message}`, error.stack);
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new InternalServerErrorException('An error occurred during OTP verification');
+      this.logger.error(`Error in verifyOTP controller: ${error.message}`);
+      throw error;
     }
   }
 

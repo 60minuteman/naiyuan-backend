@@ -2,10 +2,13 @@ services:
   - type: web
     name: naiyuan-backend
     env: node
-    buildCommand: ./build.sh
+    plan: free
+    buildCommand: chmod +x build.sh && ./build.sh
     startCommand: yarn start
     envVars:
       - key: DATABASE_URL
         value: postgresql://naiyuan_user:Bw9dgNFjxVAtqeqlCTEO60EEdJqqIMnZ@dpg-csfb8o08fa8c739ti4p0-a.oregon-postgres.render.com/naiyuan
       - key: NODE_ENV
         value: production
+    healthCheckPath: /
+    autoDeploy: true
