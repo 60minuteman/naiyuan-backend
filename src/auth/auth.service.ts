@@ -9,6 +9,7 @@ import { User, VerificationStatus } from '@prisma/client';
 import { LoginDto } from './dto/login.dto';
 import { SignUpDto } from './dto/signup.dto';
 import { PrismaClientKnownRequestError } from 'prisma';
+import { VerifyOTPDto } from './dto/verify-otp.dto';
 
 @Injectable()
 export class AuthService {
@@ -124,12 +125,11 @@ export class AuthService {
     try {
       this.logger.log(`Verifying OTP for email: ${verifyOTPDto.email}`);
 
-      // Find the latest OTP
       const otpRecord = await this.prisma.oTPStore.findFirst({
         where: {
           email: verifyOTPDto.email,
           expiresAt: {
-            gt: new Date() // not expired
+            gt: new Date()
           }
         },
         orderBy: {
@@ -141,26 +141,19 @@ export class AuthService {
       });
 
       if (!otpRecord) {
-        this.logger.warn(`No valid OTP found for email: ${verifyOTPDto.email}`);
         throw new BadRequestException('No valid OTP found. Please request a new OTP.');
       }
 
-      this.logger.debug(`Found OTP record: ${JSON.stringify({
-        id: otpRecord.id,
-        email: otpRecord.email,
-        expiresAt: otpRecord.expiresAt
-      })}`);
-
-      // Verify OTP
       if (otpRecord.otp !== verifyOTPDto.otp) {
-        this.logger.warn(`Invalid OTP provided for email: ${verifyOTPDto.email}`);
         throw new BadRequestException('Invalid OTP');
       }
 
-      // Update user verification status
+      // Update user verification status using enum
       await this.prisma.user.update({
         where: { id: otpRecord.user.id },
-        data: { verificationStatus: 'VERIFIED' }
+        data: { 
+          verificationStatus: VerificationStatus.VERIFIED 
+        }
       });
 
       // Delete used OTP
@@ -168,7 +161,6 @@ export class AuthService {
         where: { id: otpRecord.id }
       });
 
-      // Generate token
       const token = this.jwtService.sign({
         sub: otpRecord.user.id,
         email: otpRecord.user.email
@@ -183,12 +175,10 @@ export class AuthService {
       };
 
     } catch (error) {
-      this.logger.error(`Error in verifyOTP: ${error.message}`, error.stack);
-      
+      this.logger.error(`Error in verifyOTP: ${error.message}`);
       if (error instanceof BadRequestException) {
         throw error;
       }
-      
       throw new InternalServerErrorException('Failed to verify OTP');
     }
   }

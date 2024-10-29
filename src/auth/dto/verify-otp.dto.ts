@@ -5,6 +5,6 @@ export class VerifyOTPDto {
   email: string;
 
   @IsString()
-  @Length(6, 6, { message: 'OTP must be exactly 6 characters' })
+  @Length(6, 6)
   otp: string;
 } 

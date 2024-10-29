@@ -94,8 +94,7 @@ model PaymentAccount {
 
 enum VerificationStatus {
   PENDING
-  SUCCESS
-  FAILED
+  VERIFIED
 }
 
 enum TransactionStatus {
