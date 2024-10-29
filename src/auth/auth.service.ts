@@ -62,8 +62,8 @@ export class AuthService {
         // Store OTP
         await prisma.oTPStore.create({
           data: {
-            email: user.email,
-            otp: otp,
+            otp,
+            userId: user.id,
             expiresAt: expiresAt,
             user: {
               connect: {
