@@ -105,7 +105,10 @@ export class AuthService {
       });
 
       if (!user) {
-        throw new BadRequestException('User not found');
+        throw new BadRequestException({
+          success: false,
+          message: 'User not found'
+        });
       }
 
       const otpRecord = await this.prisma.oTPStore.findFirst({
@@ -119,13 +122,33 @@ export class AuthService {
       });
 
       if (!otpRecord) {
-        throw new BadRequestException('Invalid or expired OTP');
+        throw new BadRequestException({
+          success: false,
+          message: 'Invalid or expired OTP'
+        });
       }
 
-      // Update user verification status
+      // Update user verification status and optional fields if provided
+      const updateData: any = {
+        verificationStatus: 'VERIFIED'
+      };
+
+      if (verifyOTPDto.firstName) {
+        updateData.firstName = verifyOTPDto.firstName;
+      }
+
+      if (verifyOTPDto.lastName) {
+        updateData.lastName = verifyOTPDto.lastName;
+      }
+
+      if (verifyOTPDto.password) {
+        updateData.password = await bcrypt.hash(verifyOTPDto.password, 10);
+      }
+
+      // Update user
       const updatedUser = await this.prisma.user.update({
         where: { id: user.id },
-        data: { verificationStatus: 'VERIFIED' }
+        data: updateData
       });
 
       // Generate JWT token
@@ -136,7 +159,7 @@ export class AuthService {
 
       const token = await this.jwtService.signAsync(payload);
       
-      // Remove sensitive data from user object
+      // Remove password from response
       const { password: _, ...userWithoutPassword } = updatedUser;
 
       return {
