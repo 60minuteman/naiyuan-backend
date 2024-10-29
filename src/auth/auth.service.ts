@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { GenerateOTPDto } from './dto/generate-otp.dto';
@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { SignUpDto } from './dto/signup.dto';
 import * as bcrypt from 'bcrypt';
 import { CompleteProfileDto } from './dto/complete-profile.dto';
+import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
@@ -286,6 +287,86 @@ export class AuthService {
       throw new BadRequestException({
         success: false,
         message: error.message || 'Failed to update profile'
+      });
+    }
+  }
+
+  async login(loginDto: LoginDto) {
+    try {
+      // Find user by email
+      const user = await this.prisma.user.findUnique({
+        where: { email: loginDto.email.toLowerCase() }
+      });
+
+      if (!user) {
+        throw new UnauthorizedException({
+          success: false,
+          message: 'Invalid email or password'
+        });
+      }
+
+      // Verify password
+      const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+      if (!isPasswordValid) {
+        throw new UnauthorizedException({
+          success: false,
+          message: 'Invalid email or password'
+        });
+      }
+
+      // Check if user is verified
+      if (user.verificationStatus !== 'VERIFIED') {
+        throw new UnauthorizedException({
+          success: false,
+          message: 'Please verify your email first',
+          isVerified: false,
+          email: user.email
+        });
+      }
+
+      // Generate JWT token
+      const payload = {
+        sub: user.id,
+        email: user.email
+      };
+
+      const token = await this.jwtService.signAsync(payload);
+
+      // Remove sensitive data from user object
+      const { password: _, ...userWithoutPassword } = user;
+
+      return {
+        success: true,
+        message: 'Login successful',
+        token,
+        user: userWithoutPassword
+      };
+
+    } catch (error) {
+      this.logger.error('Login failed:', error);
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      throw new BadRequestException({
+        success: false,
+        message: error.message || 'Login failed'
+      });
+    }
+  }
+
+  async logout(userId: number) {
+    try {
+      // You could implement token blacklisting here if needed
+      // For now, we'll just return a success response
+      return {
+        success: true,
+        message: 'Logged out successfully'
+      };
+    } catch (error) {
+      this.logger.error('Logout failed:', error);
+      throw new BadRequestException({
+        success: false,
+        message: error.message || 'Logout failed'
       });
     }
   }
