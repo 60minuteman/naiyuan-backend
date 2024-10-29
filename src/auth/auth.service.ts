@@ -31,7 +31,6 @@ export class AuthService {
             data: {
               email: generateOTPDto.email,
               verificationStatus: 'PENDING',
-              // Add any other required fields with default values
               phoneNumber: null,
               password: null,
               firstName: null,
@@ -61,10 +60,11 @@ export class AuthService {
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       this.logger.debug('Generated OTP');
       
-      // Save OTP to database
+      // Save OTP to database with email
       const otpRecord = await this.prisma.oTPStore.create({
         data: {
           otp,
+          email: user.email,
           userId: user.id,
           expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes expiry
         },
@@ -78,7 +78,7 @@ export class AuthService {
       return { 
         message: 'OTP sent successfully',
         isNewUser: !user,
-        userId: user.id // Adding userId to response for debugging
+        userId: user.id
       };
 
     } catch (error) {
@@ -86,7 +86,6 @@ export class AuthService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      // Log the full error for debugging
       this.logger.error('Full error:', JSON.stringify(error, null, 2));
       throw new BadRequestException(error.message || 'Failed to generate OTP');
     }
