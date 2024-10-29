@@ -112,29 +112,27 @@ export class AuthService {
     }
   }
 
-  async resendOTP(email: string) {
-    try {
-      this.logger.log(`Resending OTP for email: ${email}`);
-      return await this.generateOTP(email);
-    } catch (error) {
-      this.logger.error(`Error resending OTP: ${error.message}`, error.stack);
-      throw error;
-    }
+  async resendOTP(generateOTPDto: GenerateOTPDto) {
+    return this.generateOTP(generateOTPDto);
   }
 
   async verifyOTP(verifyOTPDto: VerifyOTPDto) {
     try {
-      this.logger.log(`Verifying OTP for email: ${verifyOTPDto.email}`);
+      const user = await this.prisma.user.findUnique({
+        where: { email: verifyOTPDto.email }
+      });
+
+      if (!user) {
+        throw new BadRequestException('User not found');
+      }
 
       const otpRecord = await this.prisma.oTPStore.findFirst({
         where: {
-          email: verifyOTPDto.email,
+          userId: user.id,
+          otp: verifyOTPDto.otp,
           expiresAt: {
             gt: new Date()
           }
-        },
-        orderBy: {
-          createdAt: 'desc'
         },
         include: {
           user: true
@@ -142,41 +140,31 @@ export class AuthService {
       });
 
       if (!otpRecord) {
-        throw new BadRequestException('No valid OTP found. Please request a new OTP.');
+        throw new BadRequestException('Invalid or expired OTP');
       }
 
-      if (otpRecord.otp !== verifyOTPDto.otp) {
-        throw new BadRequestException('Invalid OTP');
-      }
-
-      // Update user verification status using enum
+      // Update user verification status
       await this.prisma.user.update({
-        where: { id: otpRecord.user.id },
-        data: { 
-          verificationStatus: VerificationStatus.VERIFIED 
-        }
+        where: { id: otpRecord.userId },
+        data: { verificationStatus: 'VERIFIED' }
       });
 
-      // Delete used OTP
-      await this.prisma.oTPStore.delete({
-        where: { id: otpRecord.id }
-      });
+      // Generate JWT token
+      const payload = {
+        sub: otpRecord.userId,
+        email: user.email
+      };
 
-      const token = this.jwtService.sign({
-        sub: otpRecord.user.id,
-        email: otpRecord.user.email
-      });
-
-      const { password: _, ...userWithoutPassword } = otpRecord.user;
+      const token = await this.jwtService.signAsync(payload);
+      const { password: _, ...userWithoutPassword } = user;
 
       return {
-        message: 'OTP verified successfully',
-        token,
+        access_token: token,
         user: userWithoutPassword
       };
 
     } catch (error) {
-      this.logger.error(`Error in verifyOTP: ${error.message}`);
+      this.logger.error('Failed to verify OTP:', error);
       if (error instanceof BadRequestException) {
         throw error;
       }
@@ -258,7 +246,6 @@ export class AuthService {
 
   async generateOTP(generateOTPDto: GenerateOTPDto) {
     try {
-      // Check if user exists
       const user = await this.prisma.user.findUnique({
         where: { email: generateOTPDto.email }
       });
@@ -280,7 +267,7 @@ export class AuthService {
       });
 
       // Send OTP via email
-      await this.emailService.sendOTPEmail(user.email, otp);
+      await this.emailService.sendOTP(user.email, otp);
 
       return { message: 'OTP sent successfully' };
 
