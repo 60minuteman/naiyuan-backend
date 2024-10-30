@@ -1,5 +1,4 @@
-import { IsString, IsOptional } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { IsString, IsOptional, Matches } from 'class-validator';
 
 export class CompleteProfileDto {
   @IsString()
@@ -11,19 +10,9 @@ export class CompleteProfileDto {
   nin?: string;
 
   @IsOptional()
-  @Transform(({ value }) => {
-    if (!value) return undefined;
-    try {
-      const date = new Date(value);
-      if (isNaN(date.getTime())) {
-        throw new Error('Invalid date');
-      }
-      // Set time to midnight UTC
-      date.setUTCHours(0, 0, 0, 0);
-      return date.toISOString();
-    } catch {
-      throw new Error('Invalid date format');
-    }
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'Date must be in YYYY-MM-DD format'
   })
   dateOfBirth?: string;
 } 
