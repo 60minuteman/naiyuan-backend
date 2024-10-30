@@ -272,7 +272,7 @@ export class AuthService {
       // Handle date formatting
       if (completeProfileDto.dateOfBirth) {
         try {
-          // Create a new Date object and format it properly
+          // Parse the date string and create a new Date object
           const [year, month, day] = completeProfileDto.dateOfBirth.split('-').map(Number);
           const date = new Date(Date.UTC(year, month - 1, day));
           
@@ -280,9 +280,10 @@ export class AuthService {
             throw new Error('Invalid date');
           }
 
-          updateData.dateOfBirth = date;
+          // Convert to ISO string for Prisma
+          updateData.dateOfBirth = date.toISOString();
           
-          this.logger.debug('Formatted date:', date.toISOString());
+          this.logger.debug('Formatted date:', updateData.dateOfBirth);
         } catch (error) {
           this.logger.error('Date formatting error:', error);
           throw new BadRequestException({
@@ -292,7 +293,8 @@ export class AuthService {
         }
       }
 
-      this.logger.debug('Update data:', updateData);
+      // Log the final update data
+      this.logger.debug('Update data being sent to Prisma:', updateData);
 
       // Update user profile with formatted data
       const updatedUser = await this.prisma.user.update({
@@ -314,12 +316,6 @@ export class AuthService {
       this.logger.error('Profile completion failed:', error);
       if (error instanceof BadRequestException) {
         throw error;
-      }
-      if (error.code === 'P2025') {
-        throw new BadRequestException({
-          success: false,
-          message: 'User not found'
-        });
       }
       throw new BadRequestException({
         success: false,
