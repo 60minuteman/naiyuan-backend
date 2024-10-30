@@ -251,42 +251,45 @@ export class AuthService {
   async completeProfile(userId: number, completeProfileDto: CompleteProfileDto) {
     try {
       this.logger.debug('Completing profile for user:', userId);
-      this.logger.debug('Profile data:', completeProfileDto);
       
       const user = await this.prisma.user.findUnique({
         where: { id: userId }
       });
 
       if (!user) {
-        this.logger.debug('User not found for profile completion:', userId);
         throw new BadRequestException({
           success: false,
           message: 'User not found'
         });
       }
 
-      // Format the date properly for Prisma
-      let formattedDate = null;
+      // Create update data object
+      const updateData: any = {
+        bvn: completeProfileDto.bvn,
+        nin: completeProfileDto.nin,
+      };
+
+      // Handle date separately
       if (completeProfileDto.dateOfBirth) {
         try {
-          // Convert to ISO string and ensure it's a valid date
-          formattedDate = new Date(completeProfileDto.dateOfBirth).toISOString();
+          // Ensure the date is in the correct format
+          const date = new Date(completeProfileDto.dateOfBirth);
+          if (isNaN(date.getTime())) {
+            throw new Error('Invalid date');
+          }
+          updateData.dateOfBirth = date;
         } catch (error) {
           throw new BadRequestException({
             success: false,
-            message: 'Invalid date format. Please use YYYY-MM-DD format'
+            message: 'Invalid date format for date of birth'
           });
         }
       }
 
-      // Update user profile with formatted date
+      // Update user profile
       const updatedUser = await this.prisma.user.update({
         where: { id: userId },
-        data: {
-          bvn: completeProfileDto.bvn,
-          nin: completeProfileDto.nin,
-          dateOfBirth: formattedDate, // Use the formatted date
-        }
+        data: updateData
       });
 
       this.logger.debug('Profile completed successfully for user:', userId);

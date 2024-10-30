@@ -10,12 +10,18 @@ export class CompleteProfileDto {
   @IsOptional()
   nin?: string;
 
-  @IsISO8601()
   @IsOptional()
   @Transform(({ value }) => {
     if (!value) return undefined;
-    const date = new Date(value);
-    return date.toISOString();
+    try {
+      const date = new Date(value);
+      if (isNaN(date.getTime())) {
+        throw new Error('Invalid date');
+      }
+      return date.toISOString();
+    } catch {
+      throw new Error('Invalid date format');
+    }
   })
   dateOfBirth?: string;
 } 
