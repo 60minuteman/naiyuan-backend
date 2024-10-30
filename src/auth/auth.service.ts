@@ -250,27 +250,47 @@ export class AuthService {
 
   async completeProfile(userId: number, completeProfileDto: CompleteProfileDto) {
     try {
+      this.logger.debug('Completing profile for user:', userId);
+      this.logger.debug('Profile data:', completeProfileDto);
+      
       const user = await this.prisma.user.findUnique({
         where: { id: userId }
       });
 
       if (!user) {
+        this.logger.debug('User not found for profile completion:', userId);
         throw new BadRequestException({
           success: false,
           message: 'User not found'
         });
       }
 
+      // Format the date properly for Prisma
+      let formattedDate = null;
+      if (completeProfileDto.dateOfBirth) {
+        try {
+          // Convert to ISO string and ensure it's a valid date
+          formattedDate = new Date(completeProfileDto.dateOfBirth).toISOString();
+        } catch (error) {
+          throw new BadRequestException({
+            success: false,
+            message: 'Invalid date format. Please use YYYY-MM-DD format'
+          });
+        }
+      }
+
+      // Update user profile with formatted date
       const updatedUser = await this.prisma.user.update({
         where: { id: userId },
         data: {
           bvn: completeProfileDto.bvn,
           nin: completeProfileDto.nin,
-          dateOfBirth: completeProfileDto.dateOfBirth ? new Date(completeProfileDto.dateOfBirth) : null,
+          dateOfBirth: formattedDate, // Use the formatted date
         }
       });
 
-      // Remove sensitive information
+      this.logger.debug('Profile completed successfully for user:', userId);
+
       const { password: _, ...userWithoutPassword } = updatedUser;
 
       return {
@@ -280,9 +300,15 @@ export class AuthService {
       };
 
     } catch (error) {
-      this.logger.error('Failed to complete profile:', error);
+      this.logger.error('Profile completion failed:', error);
       if (error instanceof BadRequestException) {
         throw error;
+      }
+      if (error.code === 'P2025') {
+        throw new BadRequestException({
+          success: false,
+          message: 'User not found'
+        });
       }
       throw new BadRequestException({
         success: false,
@@ -293,29 +319,34 @@ export class AuthService {
 
   async login(loginDto: LoginDto) {
     try {
-      // Find user by email
+      this.logger.debug('Login attempt for email:', loginDto.email);
+      
       const user = await this.prisma.user.findUnique({
         where: { email: loginDto.email.toLowerCase() }
       });
 
       if (!user) {
+        this.logger.debug('User not found:', loginDto.email);
         throw new UnauthorizedException({
           success: false,
           message: 'Invalid email or password'
         });
       }
 
-      // Verify password
       const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
       if (!isPasswordValid) {
+        this.logger.debug('Invalid password for user:', loginDto.email);
         throw new UnauthorizedException({
           success: false,
           message: 'Invalid email or password'
         });
       }
 
-      // Check if user is verified
       if (user.verificationStatus !== 'VERIFIED') {
+        this.logger.debug('Unverified user attempting login:', loginDto.email);
+        // Generate new OTP for unverified users
+        await this.generateOTP({ email: user.email });
+        
         throw new UnauthorizedException({
           success: false,
           message: 'Please verify your email first',
@@ -324,15 +355,15 @@ export class AuthService {
         });
       }
 
-      // Generate JWT token
-      const payload = {
-        sub: user.id,
-        email: user.email
+      const payload = { 
+        sub: user.id, 
+        email: user.email,
+        verificationStatus: user.verificationStatus
       };
-
+      
       const token = await this.jwtService.signAsync(payload);
+      this.logger.debug('Login successful for user:', loginDto.email);
 
-      // Remove sensitive data from user object
       const { password: _, ...userWithoutPassword } = user;
 
       return {

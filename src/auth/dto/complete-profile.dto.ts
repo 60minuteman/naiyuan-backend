@@ -1,4 +1,5 @@
-import { IsString, IsDateString, IsOptional } from 'class-validator';
+import { IsString, IsISO8601, IsOptional } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class CompleteProfileDto {
   @IsString()
@@ -9,7 +10,12 @@ export class CompleteProfileDto {
   @IsOptional()
   nin?: string;
 
-  @IsDateString()
+  @IsISO8601()
   @IsOptional()
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    const date = new Date(value);
+    return date.toISOString();
+  })
   dateOfBirth?: string;
 } 
