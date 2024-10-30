@@ -269,15 +269,20 @@ export class AuthService {
         nin: completeProfileDto.nin,
       };
 
-      // Handle date separately
+      // Handle date formatting
       if (completeProfileDto.dateOfBirth) {
         try {
-          // Ensure the date is in the correct format
+          // Convert to Date object and ensure it's valid
           const date = new Date(completeProfileDto.dateOfBirth);
           if (isNaN(date.getTime())) {
-            throw new Error('Invalid date');
+            throw new BadRequestException({
+              success: false,
+              message: 'Invalid date format'
+            });
           }
-          updateData.dateOfBirth = date;
+          // Set time to midnight UTC to avoid timezone issues
+          date.setUTCHours(0, 0, 0, 0);
+          updateData.dateOfBirth = date.toISOString();
         } catch (error) {
           throw new BadRequestException({
             success: false,
@@ -286,7 +291,7 @@ export class AuthService {
         }
       }
 
-      // Update user profile
+      // Update user profile with formatted data
       const updatedUser = await this.prisma.user.update({
         where: { id: userId },
         data: updateData
@@ -306,12 +311,6 @@ export class AuthService {
       this.logger.error('Profile completion failed:', error);
       if (error instanceof BadRequestException) {
         throw error;
-      }
-      if (error.code === 'P2025') {
-        throw new BadRequestException({
-          success: false,
-          message: 'User not found'
-        });
       }
       throw new BadRequestException({
         success: false,

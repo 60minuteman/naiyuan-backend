@@ -1,4 +1,4 @@
-import { IsString, IsISO8601, IsOptional } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class CompleteProfileDto {
@@ -18,6 +18,8 @@ export class CompleteProfileDto {
       if (isNaN(date.getTime())) {
         throw new Error('Invalid date');
       }
+      // Set time to midnight UTC
+      date.setUTCHours(0, 0, 0, 0);
       return date.toISOString();
     } catch {
       throw new Error('Invalid date format');
