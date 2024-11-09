@@ -1,8 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { SendNotificationDto, UpdateNotificationSettingsDto } from './dto';
+import { SendNotificationDto } from './dto';
 import * as admin from 'firebase-admin';
-import { NotificationType } from '@prisma/client';
 
 @Injectable()
 export class PushNotificationsService {
@@ -14,18 +13,17 @@ export class PushNotificationsService {
 
   async sendNotification(dto: SendNotificationDto) {
     try {
-      const { userId, title, data } = dto;
+      const { title, body, data } = dto;
 
-      // Get all active devices for the user
+      // Get all active devices
       const devices = await this.prisma.device.findMany({
         where: {
-          userId,
           isActive: true,
         },
       });
 
       if (!devices.length) {
-        throw new Error('No active devices found for user');
+        throw new Error('No active devices found');
       }
 
       // Send to all devices
@@ -33,7 +31,7 @@ export class PushNotificationsService {
         const message = {
           notification: {
             title,
-            body: dto.body,
+            body,
           },
           data: data || {},
           token: device.deviceToken,
@@ -45,9 +43,9 @@ export class PushNotificationsService {
           // Log notification
           await this.prisma.notification.create({
             data: {
-              userId,
+              userId: device.userId,
               title,
-              body: dto.body,
+              body,
               data: data || {},
               status: 'SENT',
               messageId: response,
@@ -58,7 +56,7 @@ export class PushNotificationsService {
         } catch (error) {
           if (error.code === 'messaging/invalid-registration-token' ||
               error.code === 'messaging/registration-token-not-registered') {
-            await this.deactivateDevice(userId, device.deviceToken);
+            await this.deactivateDevice(device.userId, device.deviceToken);
           }
           return { success: false, deviceId: device.id, error: error.message };
         }
@@ -69,6 +67,7 @@ export class PushNotificationsService {
       return {
         success: true,
         message: 'Notifications processed',
+        totalDevices: devices.length,
         results,
       };
     } catch (error) {

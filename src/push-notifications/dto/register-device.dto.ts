@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsOptional } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsNumber } from 'class-validator';
 
 export enum DeviceType {
   IOS = 'IOS',
@@ -7,6 +7,9 @@ export enum DeviceType {
 }
 
 export class RegisterDeviceDto {
+  @IsNumber()
+  userId: number;
+
   @IsString()
   deviceToken: string;
 

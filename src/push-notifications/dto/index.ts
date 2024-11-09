@@ -23,10 +23,6 @@ export class CreateTemplateDto {
   }
   
   export class SendNotificationDto {
-    @IsNumber()
-    @IsNotEmpty()
-    userId: number;
-  
     @IsString()
     @IsNotEmpty()
     title: string;
