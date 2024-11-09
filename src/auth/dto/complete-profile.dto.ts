@@ -1,4 +1,5 @@
-import { IsString, IsOptional, Matches } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class CompleteProfileDto {
   @IsString()
@@ -10,9 +11,18 @@ export class CompleteProfileDto {
   nin?: string;
 
   @IsOptional()
-  @IsString()
-  @Matches(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?([+-]\d{2}:?\d{2}|Z)$/, {
-    message: 'Date must be in ISO-8601 DateTime format (e.g. 1996-09-08T00:00:00Z)'
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    
+    // If already in ISO format, return as is
+    if (value.includes('T')) return value;
+    
+    // Convert YYYY-MM-DD to ISO format
+    const date = new Date(value);
+    if (isNaN(date.getTime())) {
+      throw new Error('Invalid date format');
+    }
+    return date.toISOString();
   })
   dateOfBirth?: string;
 }

@@ -272,37 +272,38 @@ export class AuthService {
       // Handle date formatting
       if (completeProfileDto.dateOfBirth) {
         try {
-          // Parse the date string and create a new Date object
-          const [year, month, day] = completeProfileDto.dateOfBirth.split('-').map(Number);
-          const date = new Date(Date.UTC(year, month - 1, day));
+          let isoDate: string;
           
-          if (isNaN(date.getTime())) {
-            throw new Error('Invalid date');
+          // Check if the date is already in ISO format
+          if (completeProfileDto.dateOfBirth.includes('T')) {
+            isoDate = completeProfileDto.dateOfBirth;
+          } else {
+            // Convert YYYY-MM-DD to ISO format
+            const date = new Date(completeProfileDto.dateOfBirth);
+            if (isNaN(date.getTime())) {
+              throw new Error('Invalid date');
+            }
+            isoDate = date.toISOString();
           }
 
-          // Convert to ISO string for Prisma
-          updateData.dateOfBirth = date.toISOString();
-          
-          this.logger.debug('Formatted date:', updateData.dateOfBirth);
+          updateData.dateOfBirth = isoDate;
+          this.logger.debug('Formatted date:', isoDate);
         } catch (error) {
           this.logger.error('Date formatting error:', error);
           throw new BadRequestException({
             success: false,
-            message: 'Invalid date format. Please use YYYY-MM-DD format'
+            message: 'Invalid date format. Please use YYYY-MM-DD or ISO format'
           });
         }
       }
 
-      // Log the final update data
-      this.logger.debug('Update data being sent to Prisma:', updateData);
+      this.logger.debug('Update data:', updateData);
 
-      // Update user profile with formatted data
+      // Update user profile
       const updatedUser = await this.prisma.user.update({
         where: { id: userId },
         data: updateData
       });
-
-      this.logger.debug('Profile completed successfully for user:', userId);
 
       const { password: _, ...userWithoutPassword } = updatedUser;
 
