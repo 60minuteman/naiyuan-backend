@@ -7,6 +7,7 @@ import { EmailModule } from './email/email.module';
 import { PaymentsModule } from './payments/payments.module';
 import { VirtualAccountModule } from './virtual-account/virtual-account.module';
 import { TransactionModule } from './transaction/transaction.module';
+import { PushNotificationsModule } from './push-notifications/push-notifications.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { TransactionModule } from './transaction/transaction.module';
     PaymentsModule,
     VirtualAccountModule,
     TransactionModule,
+    PushNotificationsModule,
   ],
 })
 export class AppModule {}
