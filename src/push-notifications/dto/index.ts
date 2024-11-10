@@ -1,5 +1,6 @@
 import { IsString, IsNotEmpty, IsEnum, IsObject, IsOptional, IsNumber, IsBoolean } from 'class-validator';
 import { NotificationType } from '@prisma/client';
+import { DeviceType } from '@prisma/client';
 
 export class CreateTemplateDto {
     @IsString()
@@ -56,4 +57,29 @@ export class CreateTemplateDto {
     @IsBoolean()
     @IsOptional()
     marketingEnabled?: boolean;
+  }
+  
+  export class RegisterDeviceDto {
+    @IsNumber()
+    @IsNotEmpty()
+    userId: number;
+  
+    @IsString()
+    @IsNotEmpty()
+    deviceToken: string;
+  
+    @IsEnum(DeviceType)
+    deviceType: DeviceType;
+  
+    @IsString()
+    @IsOptional()
+    deviceModel?: string;
+  
+    @IsString()
+    @IsOptional()
+    osVersion?: string;
+  
+    @IsString()
+    @IsOptional()
+    appVersion?: string;
   }

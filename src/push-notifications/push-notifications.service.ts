@@ -1,14 +1,57 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { SendNotificationDto } from './dto';
+import { SendNotificationDto, RegisterDeviceDto } from './dto';
+import { DeviceType } from '@prisma/client';  // Import from Prisma client
 import * as admin from 'firebase-admin';
+
+export enum NotificationType {
+  TRANSACTION = 'TRANSACTION',
+  MARKETING = 'MARKETING',
+  SYSTEM = 'SYSTEM'
+}
 
 @Injectable()
 export class PushNotificationsService {
   private readonly logger = new Logger(PushNotificationsService.name);
 
-  constructor(private prisma: PrismaService) {
-    // Firebase initialization
+  constructor(private prisma: PrismaService) {}
+
+  async registerDevice(userId: number, dto: RegisterDeviceDto) {
+    try {
+      const device = await this.prisma.device.upsert({
+        where: {
+          userId_deviceToken: {
+            userId,
+            deviceToken: dto.deviceToken,
+          },
+        },
+        update: {
+          isActive: true,
+          lastUsedAt: new Date(),
+          deviceModel: dto.deviceModel,
+          osVersion: dto.osVersion,
+          appVersion: dto.appVersion,
+          deviceType: dto.deviceType,  // This will now be the correct enum type
+        },
+        create: {
+          userId,
+          deviceToken: dto.deviceToken,
+          deviceType: dto.deviceType,  // This will now be the correct enum type
+          deviceModel: dto.deviceModel,
+          osVersion: dto.osVersion,
+          appVersion: dto.appVersion,
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Device registered successfully',
+        device,
+      };
+    } catch (error) {
+      this.logger.error('Device registration failed:', error);
+      throw error;
+    }
   }
 
   async sendNotification(dto: SendNotificationDto) {
