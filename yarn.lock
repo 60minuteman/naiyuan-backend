@@ -1828,15 +1828,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@prisma/client@npm:latest":
-  version: 5.21.1
-  resolution: "@prisma/client@npm:5.21.1"
+"@prisma/client@npm:^6.1.0":
+  version: 6.1.0
+  resolution: "@prisma/client@npm:6.1.0"
   peerDependencies:
     prisma: "*"
   peerDependenciesMeta:
     prisma:
       optional: true
-  checksum: 4514e8805073c31ac91196870b732f191a911e64983857a7bd41638d30d6a75ac1dd79173a6d2ddf2cdf62546e4229936d27ba803a8bc82aad3c2c51f54288ec
+  checksum: 1b7e5797ea29f5bdb1c4419894cd3853ef8d3fc35bdc2a296c08a1fa695c50b413bc9f3c495c878198145f0ebe04ae18bb0d2265cba08b2fa982c372f99fcc63
   languageName: node
   linkType: hard
 
@@ -4009,6 +4009,13 @@ __metadata:
   version: 16.4.5
   resolution: "dotenv@npm:16.4.5"
   checksum: 301a12c3d44fd49888b74eb9ccf9f07a1f5df43f489e7fcb89647a2edcd84c42d6bc349dc8df099cd18f07c35c7b04685c1a4f3e6a6a9e6b30f8d48c15b7f49c
+  languageName: node
+  linkType: hard
+
+"dotenv@npm:^16.4.7":
+  version: 16.4.7
+  resolution: "dotenv@npm:16.4.7"
+  checksum: c27419b5875a44addcc56cc69b7dc5b0e6587826ca85d5b355da9303c6fc317fc9989f1f18366a16378c9fdd9532d14117a1abe6029cc719cdbbef6eaef2cea4
   languageName: node
   linkType: hard
 
@@ -7053,7 +7060,7 @@ __metadata:
     "@nestjs/platform-express": ^10.0.0
     "@nestjs/schematics": ^10.0.0
     "@nestjs/testing": ^10.0.0
-    "@prisma/client": latest
+    "@prisma/client": ^6.1.0
     "@react-native-firebase/app": ^21.4.0
     "@react-native-firebase/messaging": ^21.4.0
     "@types/bcrypt": ^5.0.2
@@ -7070,6 +7077,7 @@ __metadata:
     bcrypt: ^5.1.1
     class-transformer: ^0.5.1
     class-validator: ^0.14.1
+    dotenv: ^16.4.7
     eslint: ^8.42.0
     eslint-config-prettier: ^9.0.0
     eslint-plugin-prettier: ^5.0.0
