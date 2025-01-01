@@ -8,78 +8,78 @@ datasource db {
 }
 
 model User {
-  id                 Int                @id @default(autoincrement())
-  email              String             @unique
-  phoneNumber        String?
-  password           String?
-  firstName          String?
-  lastName           String?
-  middleName         String?
-  bvn                String?
-  nin                String?
-  dateOfBirth        DateTime?
-  lgaOfOrigin        String?
-  stateOfOrigin      String?
-  residentialAddress String?
-  verificationStatus VerificationStatus @default(PENDING)
-  bvnResponse        Json?
-  ninResponse        Json?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  otps               OTPStore[]
-  paymentAccounts    PaymentAccount[]
-  transactions       Transaction[]
-  virtualAccounts    VirtualAccount[]
-  fcmToken     String?
-  notifications Notification[]
+  id                   Int                   @id @default(autoincrement())
+  email                String                @unique
+  phoneNumber          String?
+  password             String?
+  firstName            String?
+  lastName             String?
+  middleName           String?
+  bvn                  String?
+  nin                  String?
+  dateOfBirth          DateTime?
+  lgaOfOrigin          String?
+  stateOfOrigin        String?
+  residentialAddress   String?
+  verificationStatus   VerificationStatus    @default(PENDING)
+  bvnResponse          Json?
+  ninResponse          Json?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  fcmToken             String?
+  devices              Device[]
+  notifications        Notification[]
   notificationSettings NotificationSettings?
-  devices     Device[]
+  otps                 OTPStore[]
+  paymentAccounts      PaymentAccount[]
+  transactions         Transaction[]
+  virtualAccounts      VirtualAccount[]
 }
 
 model OTPStore {
   id        Int      @id @default(autoincrement())
-  otp       String
   email     String
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id])
-  expiresAt DateTime
+  otp       String
   createdAt DateTime @default(now())
+  expiresAt DateTime
+  userId    Int
   updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model VirtualAccount {
   id            String   @id @default(uuid())
-  userId        Int
   reference     String   @unique
   accountNumber String
-  accountName   String
   bankName      String
   currency      String
-  amount        Float
   status        String
   paymentType   String
-  description   String?  // Make this field optional
+  userId        Int
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  accountName   String
+  amount        Float
+  description   String?
   user          User     @relation(fields: [userId], references: [id])
 }
 
 model Transaction {
-  id          Int      @id @default(autoincrement())
-  title       String
-  subtitle    String?
+  userId      Int
   amount      Float
-  time        DateTime @default(now())
   status      TransactionStatus @default(COMPLETED)
+  reference   String            @unique
+  description String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  paymentType PaymentMethod
   recipient   String?
   sender      String?
-  description String?
-  paymentType PaymentMethod
-  userId      Int
-  user        User     @relation(fields: [userId], references: [id])
-  reference   String   @unique
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  subtitle    String?
+  time        DateTime          @default(now())
+  title       String
+  id          Int               @id @default(autoincrement())
+  user        User              @relation(fields: [userId], references: [id])
 }
 
 model PaymentAccount {
@@ -95,54 +95,54 @@ model PaymentAccount {
 }
 
 model Notification {
-  id          Int      @id @default(autoincrement())
-  userId      Int
-  title       String
-  body        String
-  data        Json?
-  status      NotificationStatus @default(PENDING)
-  messageId   String?
-  type        NotificationType  @default(SYSTEM)
-  readAt      DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id])
+  id        Int                @id @default(autoincrement())
+  userId    Int
+  title     String
+  body      String
+  data      Json?
+  messageId String?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  readAt    DateTime?
+  type      NotificationType   @default(SYSTEM)
+  status    NotificationStatus @default(PENDING)
+  user      User               @relation(fields: [userId], references: [id])
 }
 
 model NotificationSettings {
-  id                    Int      @id @default(autoincrement())
-  userId               Int      @unique
-  pushEnabled          Boolean  @default(true)
-  emailEnabled         Boolean  @default(true)
-  transactionalEnabled Boolean  @default(true)
-  marketingEnabled     Boolean  @default(true)
-  user                 User     @relation(fields: [userId], references: [id])
+  id                   Int     @id @default(autoincrement())
+  userId               Int     @unique
+  pushEnabled          Boolean @default(true)
+  emailEnabled         Boolean @default(true)
+  transactionalEnabled Boolean @default(true)
+  marketingEnabled     Boolean @default(true)
+  user                 User    @relation(fields: [userId], references: [id])
 }
 
 model NotificationTemplate {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
-  title       String
-  body        String
-  type        String   // TRANSACTION, MARKETING, SYSTEM, etc.
-  variables   Json?    // Template variables
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  title     String
+  body      String
+  type      String
+  variables Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Device {
-  id          Int      @id @default(autoincrement())
+  id          Int        @id @default(autoincrement())
   userId      Int
   deviceToken String
-  deviceType  DeviceType
   deviceModel String?
   osVersion   String?
   appVersion  String?
-  isActive    Boolean  @default(true)
-  lastUsedAt  DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id])
+  isActive    Boolean    @default(true)
+  lastUsedAt  DateTime   @default(now())
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deviceType  DeviceType
+  user        User       @relation(fields: [userId], references: [id])
 
   @@unique([userId, deviceToken])
   @@index([deviceToken])
@@ -152,6 +152,7 @@ enum VerificationStatus {
   PENDING
   VERIFIED
 }
+
 enum TransactionStatus {
   PENDING
   COMPLETED
@@ -185,4 +186,3 @@ enum DeviceType {
   ANDROID
   WEB
 }
-
